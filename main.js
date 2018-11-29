@@ -21,4 +21,4 @@ function createWindow(){
 	
 }
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
-app.on('ready', createWindow)
+app.on('ready', createWindow);

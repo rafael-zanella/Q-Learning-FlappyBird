@@ -35,113 +35,161 @@ var DistanceFromBot = 0;  // B
 var TopTarget = 0;       // C
 var BotTarget = 0;             // D
 var TargetDistance = 0;   // E
+var Velocity = 0;       // F
+// 0 - pula, 1 - nao pula, 2 - vivo?
 var proxEstadoS1 = ""; // string chave
-var atuEstadoS = ""
+var atuEstadoS = "";
 var decisionValue; // aux valor
 
 
-// 0 < a <= 1  // 0 <= y < 1; 
-var a = 1.0;
-var y = 0.69;
-var r = 0.001;
+var lastDistanceFromTop = 0;
+var lastDistanceFromBot = 0;;
+var lastBotTarget = 0;
+var lastTopTarget = 0;
 
-function att(proximoEstado, atualEstado) {
+// 0 < a <= 1  // 0 <= y < 1;
+var a = 0.1;
+var y = 1.0;
+var r = 0.0;
+
+function updateQ(atualEstado, proximoEstado, ultimaAcao) {
+
+  // pega o maior valor da proximo estado
   s1 = mapEstados.get(proximoEstado);
-  s1 = parseFloat(s1);
+  maiorS1 = Math.max(s1[0], s1[1]);
+
+  // pega o maior valor do estado atual
   s = mapEstados.get(atualEstado);
-  s = parseFloat(s);
-  var Q = s + a*((r) + y*(s1) - (s));
-  
-  mapEstados.set(atualEstado, Q);
- 
-  //console.log(Q);
-  //console.log("ant: "+ atualEstado +" ["+ s +"]" + " atu: " + proximoEstado +" ["+ s1 +"]");
+  maiorS = Math.max(s[0], s[1]);
+if(s1[2]==false){
+    r = -0.6;
+
+}else if(lastDistanceFromTop <= 2 && ultimaAcao == 0){
+    r = -1;
+}else if(lastDistanceFromBot <= 1 && ultimaAcao == 1) {
+    r = -1;
+}else if (lastDistanceFromTop <= 2 && ultimaAcao == 1) {
+    r = 1;
+}else if (lastDistanceFromBot <= 1 && ultimaAcao == 0) {
+    r = 1;
+
+}else if(lastBotTarget <= 1 && ultimaAcao == 1){
+    r = -0.1;
+}else if(lastTopTarget >= -2 && ultimaAcao == 0){
+    r = -0.1;
+}else if(lastBotTarget <= 1 && ultimaAcao == 0){
+    r = 0.01;
+}else if(lastTopTarget >= -2 && ultimaAcao == 1){
+    r = 0.01;
+
+}else{
+    r = 0.0005;
 }
 
 
-function defineReward(bird, pipe) {
-  if (bird.y >= height || bird.y <= 0) {  // hit ground sky
-    if(bird.y > height){
-      r = -10000;
-    }else{
-      r = +1;
-    }
-    
-    
-    score = 0;
-    distancia = 0;
-    bird.reset();
-    //return true;
+  var Q = s[ultimaAcao] + a*((r) + y*(maiorS1) - (s[ultimaAcao]));
 
-  }else if (bird.y <= pipe.top || bird.y >= height - pipe.bottom) { // hit pipe
-    if (bird.x >= pipe.x && bird.x <= pipe.x + pipe.w) {
-       
-      r = 50;
-      
-      score = 0;
-      distancia = 0;
-        //pipe.highlight = true;
-        pipes.splice(0, 1);
-        contRepeticoes++;
-        //return true;
-    }
-  }else if (bird.y > pipe.top && bird.y < pipe.top + pipe.spacing) { // hit target
-    if (bird.x >= pipe.x && bird.x < pipe.x + pipe.w - 39) {
-        //this.highlight = true;  
-        //console.log("TRUE");
-        
-        r = 1;
-        
-        score++;
-        
-        if (score > record) {
-          record = score;
-        }
-        
-        //return true;  
-    }
+  //console.log(s[ultimaAcao] + "  " + s1[2] + " " + " R: " + r + " Q: " + Q + "[p " + s[0] + " n " + s[1] + "]");
+  // let vetAux = mapEstados.get(atualEstado);
+  // if(ultimaAcao == 0 && s1[2]==true){
+  //   vetAux[0] = Q;
+  //   vetAux[1] = 1-Q;
+  //
+  //   //r = 0.0001;
+  // }else if(ultimaAcao == 0 && s1[2]==false){
+  //   vetAux[0] = Q;
+  //   vetAux[1] = 1-Q;
+  //
+  //   //r = -1;
+  // }else if(ultimaAcao == 1 && s1[2]==true){
+  //   vetAux[1] = Q;
+  //   vetAux[0] = 1-Q;
+  //
+  //   //r = 0;
+  // }else if(ultimaAcao == 1 && s1[2]==false){
+  //   vetAux[1] = Q;
+  //   vetAux[0] = 1-Q;
+  //   //r = 10;
+  // }
+
+  let vetAux = mapEstados.get(atualEstado);
+  if(ultimaAcao == 0){
+    vetAux[0] = Q;
+    vetAux[1] = 1-Q;
+    //r = 0.0001;
+  }else{
+    vetAux[1] = Q;
+    vetAux[0] = 1-Q;
+    //r = 10;
   }
-    distancia++;
-    if(distancia > distanciaRecord){
-      distanciaRecord = distancia;
-    }
-    r = 2;
-    
-  
+
+  //mapEstados.set(antEstado, pS);
+
+
+  mapEstados.set(atualEstado, vetAux);
+  //console.log("[p " + s[0] + " n " + s[1] + "]");
+  //console.log("ant: "+ atualEstado +" ["+ maiorS +"]" + " atu: " + roximoEstado +" ["+ maiorS1 +"]");
 }
 
-function play(proxEstadoS1) {
- if(atuEstadoS == ""){
+function defineStates(proxEstadoS1){
+    if(atuEstadoS == ""){
    atuEstadoS = proxEstadoS1;
+   //mapEstados.set(atuEstadoS, [0.4, 0.6, true]);
    console.log("ANT = EMPTY");
+   lastDistanceFromTop = DistaceFromTop;
+   lastBotTarget = BotTarget;
+   lastTopTarget = TopTarget;
+   lastDistanceFromBot = DistanceFromBot;
  }
+ vals = [];
+
 
   if (mapEstados.has(proxEstadoS1)) {
-    //console.log("\nESTADO "+e);
-    //decisionValue = (mapEstados.get(proxEstadoS1));
-    //decisionValue = parseFloat(decisionValue.toFixed(3));
-    att(proxEstadoS1, atuEstadoS);
-    
-    if (mapEstados.get(atuEstadoS) > 39) {
+    //console.log(proxEstadoS1+ "\nESTADO "+ mapEstados.get(proxEstadoS1));
+    //console.log("2");
+    let ultimaAcao;
+    let sPlayed = mapEstados.get(atuEstadoS);
+    if (sPlayed[0] >= 0.5) {
       bird.up();
+      //console.log(bird.vivo);
+      ultimaAcao = 0;
      // console.log(atuEstadoS + "" + mapEstados.get(atuEstadoS));
-      
-    } else {
-      //console.log("down");
+    }else{
+     ultimaAcao = 1;
     }
+   //bird.update();
+    //console.log(atuEstadoS + " " + mapEstados.get(atuEstadoS));
+    updateQ(atuEstadoS, proxEstadoS1, ultimaAcao);
+    //console.log(atuEstadoS + " " + mapEstados.get(atuEstadoS));
+
     atuEstadoS = proxEstadoS1;
 
-  } else {
-    //console.log("\nNOVO ESTADO "+e);
-    let x = random(0, 100)
-    mapEstados.set(proxEstadoS1, x);
-    att(proxEstadoS1, atuEstadoS);
-    //console.log("new state "+ proxEstadoS1);
-    
-    
-  }
+    lastDistanceFromTop = DistaceFromTop;
+    lastBotTarget = BotTarget;
+    lastTopTarget = TopTarget;
+    lastDistanceFromBot = DistanceFromBot;
 
+  } else {
+    //console.log("1");
+    //console.log("\nNOVO ESTADO "+e);
+    //let x = random(0, 0.8);
+    let x = 0.49;
+    vals.push(x);
+    vals.push(1-x);
+    vals.push(bird.vivo);
+    mapEstados.set(proxEstadoS1, vals);
+
+     atuEstadoS = proxEstadoS1;
+    // lastDistanceFromTop = DistaceFromTop;
+    // lastBotTarget = BotTarget;
+    // lastTopTarget = TopTarget;
+
+    //console.log(proxEstadoS1 +"  "+ mapEstados.get(proxEstadoS1));
+    //updateS(proxEstadoS1, atuEstadoS);
+    //play(proxEstadoS1);
+  }
 }
+
 
 function setup() {
   // put setup code here
@@ -150,87 +198,78 @@ function setup() {
   bird = new Bird();
   record = 0;
   score = 0;
+  bird.vivo = true;
 }
 
 function draw() {
   // put drawing code here
   background(0);
-  
+
   for (var i = pipes.length - 1; i >= 0; i--) {
 
     //this.atuEstadoS = DistaceFromTop + "-" + DistanceFromBot + "-" + TopTarget + "-" + BotTarget + "-" + TargetDistance;
-
-
     pipes[i].show();
     pipes[i].update();
 
     // armazena estado atual
-    DistaceFromTop = (parseInt((bird.y) / 40));  // A
-    DistanceFromBot = (parseInt((height - bird.y) / 40));  // B 
-    
+    DistaceFromTop = (parseInt((bird.y) / 20));  // A
+    DistanceFromBot = (parseInt((height - bird.y) / 20));  // B
     if (pipes.length == 1) {
-      TopTarget = (parseInt((height - (pipes[i].bottom + pipes[i].spacing)) / 40));       // C
-      BotTarget = (parseInt((pipes[i].bottom) / 40));      // D
-
-      TargetDistance = (parseInt((pipes[i].x - bird.x) / 30)); // E
+      TopTarget = (parseInt( ( (pipes[i].top - bird.y )/20)));
+      BotTarget = (parseInt(((pipes[i].top + pipes[i].spacing)-bird.y)  / 20));      // D
+      TargetDistance = (parseInt((pipes[i].x - bird.x) / 16)); // E
     } else {
-
-      TopTarget = (parseInt((height - (pipes[1].bottom + pipes[1].spacing)) / 40));       // C
-      BotTarget = (parseInt((pipes[1].bottom) / 40));       // D
-
-      TargetDistance = (parseInt((pipes[1].x - bird.x) / 30)); // E
+      //TopTarget = (parseInt((height - (pipes[1].bottom + pipes[1].spacing)) / 20));       // C
+      TopTarget = (parseInt( ( (pipes[1].top - bird.y )/20)));
+      BotTarget = (parseInt(((pipes[1].top + pipes[i].spacing)-bird.y)  / 20));      // D
+      TargetDistance = (parseInt((pipes[1].x - bird.x) / 16)); // E
     }
-
+    Velocity = parseInt(bird.velocity / 2);
     // key maker
-    proxEstadoS1 = "" + DistaceFromTop + DistanceFromBot + TopTarget +  BotTarget +  TargetDistance;
+    proxEstadoS1 = ""+[DistaceFromTop, DistanceFromBot, TopTarget, BotTarget, TargetDistance, Velocity];
 
-    
 
-    if (pipes[i].offscreen()) {
+
+//FIM ESTADO ATUAL
+if (pipes[i].offscreen()) {
       pipes.splice(i, 1);
-    }
-
-   
-    defineReward(bird, pipes[i]);
-    play(proxEstadoS1);
-  }
-
-  
-  
+}
 
 
-  bird.update();
-  bird.show();
+    pipes[i].hits();
+    defineStates(proxEstadoS1);
+
+}
+
 
   fill(0, 255, 0);
-  text("score\n"+score, 10, 50);
-  text(distancia, 10, 80)
-  text("record\n "+record, 240, 50);
-  text(distanciaRecord, 240, 80);
+   text("Geracao: " + contRepeticoes, 30, 20);
+  text("SCORE\n"+score, 10, 50);
+  //text(distancia, 10, 80)
+  text("RECORD\n "+record, 240, 50);
+  //text(distanciaRecord, 240, 80);
 
-  text("value: " + parseFloat(mapEstados.get(atuEstadoS).toFixed(2)), 50, 100);
-  text("reward: " + r, 110, 40);
-  text("top:       " + DistaceFromTop, 50, 130);
-  text("bot:       " + DistanceFromBot, 50, 160);
-  text("Top Targ:  " + TopTarget, 50, 190);
-  text("Bot Targ:  " + BotTarget, 50, 220);
 
-  text("xTargetDistance: " + TargetDistance, 50, 250);
 
-  text("Repeticoes: " + contRepeticoes, 50, 280);
+  text("Top:       " + lastDistanceFromTop, 40, 160);
+  text("Bot:       " + lastDistanceFromBot, 40, 190);
+  text("yTop Targ:  " + lastTopTarget, 40, 220);
+  text("yBot Targ:  " + lastBotTarget, 40, 250);
+  text("xTarget:    " + TargetDistance, 40, 280);
+  text("bVelocity : " + Velocity, 40, 310);
+
   fill(255, 0, 0);
 
   //textAlign(CENTER);
   text("Press space to save the current states", 45, 380);
 
+  bird.update();
+  bird.show();
 
-  if (frameCount % 110 == 0) {
+//text("vivo: "+bird.vivo, 110, 50);
+  if (frameCount % 110 == 0) { //110
     pipes.push(new Pipe());
   }
-
-
-
-
 }
 
 function keyPressed() {
@@ -241,40 +280,3 @@ function keyPressed() {
 
   }
 }
-
-
-
-
-
-
-/*function punish(e){
-  //console.log(e);
-  //console.log(mapEstados.get(e) + "=>");
-  let aux = parseFloat(mapEstados.get(e));
-
-
-//  if(aux > 0.10){
-    
-    aux = aux - 1000;
-    aux = parseFloat(aux.toFixed(3));
-    mapEstados.set(e, aux);
-    console.log("Punindo: ["+ e +"]: "+mapEstados.get(e));
-    
-  //}
-  //console.log(" Perdeu: "+mapEstados.get(e));
-}*/
-
-
-/*function reward(e){
-  //console.log(mapEstados.get(e) + "=>");
-  let aux = parseFloat(mapEstados.get(e));
-  //if(aux < 1.0){
-    
-    aux = aux + 1;
-    aux = parseFloat(aux.toFixed(4));
-    mapEstados.set(e, aux);
-    
-   console.log("Recompensando: ["+ e +"]: "+mapEstados.get(e));
-  //}
-  //console.log(" Ganhou: "+mapEstados.get(e));
-}*/
